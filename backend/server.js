@@ -10,15 +10,39 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/productivity_tracker_2026', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-});
+console.log('Starting server...');
+console.log('MongoDB URI exists:', !!process.env.MONGODB_URI);
+console.log('Port:', process.env.PORT || 5000);
+
+// MongoDB Connection with better error handling
+const connectDB = async () => {
+  try {
+    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/productivity_tracker_2026';
+    console.log('Attempting to connect to MongoDB...');
+    
+    await mongoose.connect(mongoURI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000,
+    });
+    
+    console.log('✅ Connected to MongoDB successfully');
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error.message);
+    console.error('Full error:', error);
+    // Don't exit - let the app start anyway for debugging
+  }
+};
+
+connectDB();
 
 const db = mongoose.connection;
-db.on('error', console.error.bind(console, 'MongoDB connection error:'));
-db.once('open', () => console.log('Connected to MongoDB'));
+db.on('error', (error) => {
+  console.error('MongoDB connection error:', error);
+});
+db.once('open', () => {
+  console.log('✅ MongoDB connection opened');
+});
 
 // Activity Schema
 const activitySchema = new mongoose.Schema({
@@ -32,7 +56,7 @@ const activitySchema = new mongoose.Schema({
   bath: { type: Boolean, default: false },
   problems: { type: Number, default: 0, min: 0 },
   workout: { type: Boolean, default: false },
-  walk: { type: Number, default: 0, min: 0 }, // Changed from Boolean to Number
+  walk: { type: Number, default: 0, min: 0 },
   water: { type: Number, default: 0, min: 0 },
   meditation: { type: Boolean, default: false },
   jobsApplied: { type: Number, default: 0, min: 0 },
@@ -57,7 +81,7 @@ activitySchema.pre('save', function(next) {
   
   // Numeric activities - cap each at 2 for heatmap calculation
   count += Math.min(this.problems, 2);
-  count += Math.min(this.walk, 2); // Walk now counts as numeric
+  count += Math.min(this.walk, 2);
   count += Math.min(this.water, 2);
   count += Math.min(this.jobsApplied, 2);
   count += Math.min(this.jobOffers, 2);
@@ -70,9 +94,22 @@ const Activity = mongoose.model('Activity', activitySchema);
 
 // Routes
 
-// Health check
+// Health check - IMPORTANT for debugging
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    message: 'Productivity Tracker API is running',
+    mongoStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Server is running' });
+  res.json({ 
+    status: 'ok', 
+    message: 'Server is running',
+    mongoStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+  });
 });
 
 // Get all activities for a year
@@ -88,6 +125,7 @@ app.get('/api/activities/year/:year', async (req, res) => {
     
     res.json(activities);
   } catch (error) {
+    console.error('Error in /api/activities/year:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -104,7 +142,7 @@ app.get('/api/activities/:date', async (req, res) => {
         bath: false,
         problems: 0,
         workout: false,
-        walk: 0, // Changed from false to 0
+        walk: 0,
         water: 0,
         meditation: false,
         jobsApplied: 0,
@@ -117,6 +155,7 @@ app.get('/api/activities/:date', async (req, res) => {
     
     res.json(activity);
   } catch (error) {
+    console.error('Error in /api/activities/:date:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -140,6 +179,7 @@ app.post('/api/activities/:date', async (req, res) => {
     
     res.json(activity);
   } catch (error) {
+    console.error('Error in POST /api/activities/:date:', error);
     res.status(400).json({ error: error.message });
   }
 });
@@ -167,7 +207,7 @@ app.patch('/api/activities/:date/:field', async (req, res) => {
     if (activity.startupWork) count++;
 
     count += Math.min(activity.problems || 0, 2);
-    count += Math.min(activity.walk || 0, 2); // Walk now numeric
+    count += Math.min(activity.walk || 0, 2);
     count += Math.min(activity.water || 0, 2);
     count += Math.min(activity.jobsApplied || 0, 2);
     count += Math.min(activity.jobOffers || 0, 2);
@@ -178,10 +218,10 @@ app.patch('/api/activities/:date/:field', async (req, res) => {
 
     res.json(activity);
   } catch (error) {
+    console.error('Error in PATCH /api/activities/:date/:field:', error);
     res.status(400).json({ error: error.message });
   }
 });
-
 
 // Get statistics for a date range
 app.get('/api/statistics/:startDate/:endDate', async (req, res) => {
@@ -197,7 +237,7 @@ app.get('/api/statistics/:startDate/:endDate', async (req, res) => {
       bathDays: activities.filter(a => a.bath).length,
       totalProblems: activities.reduce((sum, a) => sum + a.problems, 0),
       workoutDays: activities.filter(a => a.workout).length,
-      totalWalkKm: activities.reduce((sum, a) => sum + (a.walk || 0), 0), // Total kilometers walked
+      totalWalkKm: activities.reduce((sum, a) => sum + (a.walk || 0), 0),
       meditationDays: activities.filter(a => a.meditation).length,
       totalJobsApplied: activities.reduce((sum, a) => sum + a.jobsApplied, 0),
       totalJobOffers: activities.reduce((sum, a) => sum + a.jobOffers, 0),
@@ -210,6 +250,7 @@ app.get('/api/statistics/:startDate/:endDate', async (req, res) => {
     
     res.json(stats);
   } catch (error) {
+    console.error('Error in /api/statistics:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -221,6 +262,7 @@ app.delete('/api/activities/:date', async (req, res) => {
     await Activity.findOneAndDelete({ date });
     res.json({ message: 'Activity deleted successfully' });
   } catch (error) {
+    console.error('Error in DELETE /api/activities/:date:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -239,11 +281,34 @@ app.get('/api/activities/month/:year/:month', async (req, res) => {
     
     res.json(activities);
   } catch (error) {
+    console.error('Error in /api/activities/month:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route not found', path: req.path });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Internal server error', message: err.message });
+});
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`🌐 Listening on http://0.0.0.0:${PORT}`);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled Promise Rejection:', err);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
 });

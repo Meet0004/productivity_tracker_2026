@@ -4,9 +4,7 @@
   "description": "Backend API for 2026 Productivity Tracker",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
-    "seed": "node seed.js"
+    "start": "node server.js"
   },
   "keywords": ["productivity", "tracker", "api"],
   "author": "",
