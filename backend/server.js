@@ -3,36 +3,46 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
-const path = require("path");
 
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || '*',
+  credentials: true
+}));
 app.use(express.json());
 
-
 console.log('Starting server...');
+console.log('Environment:', process.env.NODE_ENV || 'development');
 console.log('MongoDB URI exists:', !!process.env.MONGODB_URI);
 console.log('Port:', process.env.PORT || 5000);
 
 // MongoDB Connection with better error handling
 const connectDB = async () => {
   try {
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/productivity_tracker_2026';
+    if (!process.env.MONGODB_URI) {
+      throw new Error('MONGODB_URI is not defined in environment variables');
+    }
+    
+    const mongoURI = process.env.MONGODB_URI;
     console.log('Attempting to connect to MongoDB...');
     
     await mongoose.connect(mongoURI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
     });
     
     console.log('✅ Connected to MongoDB successfully');
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
     console.error('Full error:', error);
-    // Don't exit - let the app start anyway for debugging
+    // In production, we should exit if DB connection fails
+    if (process.env.NODE_ENV === 'production') {
+      process.exit(1);
+    }
   }
 };
 
@@ -96,18 +106,38 @@ const Activity = mongoose.model('Activity', activitySchema);
 
 // Routes
 
-// Health check - IMPORTANT for debugging
-// Routes
+// Root route - return JSON for API
 app.get("/", (req, res) => {
-  res.send("API is running");
+  res.json({ 
+    message: "Productivity Tracker API is running",
+    status: "ok",
+    version: "1.0.0",
+    endpoints: {
+      health: "/api/health",
+      activities: "/api/activities/:date",
+      yearActivities: "/api/activities/year/:year",
+      monthActivities: "/api/activities/month/:year/:month",
+      statistics: "/api/statistics/:startDate/:endDate"
+    }
+  });
 });
 
-
+// Health check endpoint
 app.get('/api/health', (req, res) => {
+  const mongoStatus = mongoose.connection.readyState;
+  const statusMap = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  };
+  
   res.json({ 
     status: 'ok', 
     message: 'Server is running',
-    mongoStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+    mongoStatus: statusMap[mongoStatus] || 'unknown',
+    mongoReadyState: mongoStatus,
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -287,20 +317,40 @@ app.get('/api/activities/month/:year/:month', async (req, res) => {
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found', path: req.path });
+  res.status(404).json({ 
+    error: 'Route not found', 
+    path: req.path,
+    method: req.method 
+  });
 });
 
 // Error handler
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
-  res.status(500).json({ error: 'Internal server error', message: err.message });
+  res.status(500).json({ 
+    error: 'Internal server error', 
+    message: err.message 
+  });
 });
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`🌐 Listening on http://0.0.0.0:${PORT}`);
+  console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM signal received: closing HTTP server');
+  server.close(() => {
+    console.log('HTTP server closed');
+    mongoose.connection.close(false, () => {
+      console.log('MongoDB connection closed');
+      process.exit(0);
+    });
+  });
 });
 
 // Handle unhandled promise rejections
