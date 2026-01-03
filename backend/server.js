@@ -3,12 +3,14 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
+const path = require("path");
 
 const app = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+res.sendFile(path.join(__dirname, "public", "index.html"));
 
 console.log('Starting server...');
 console.log('MongoDB URI exists:', !!process.env.MONGODB_URI);
@@ -97,7 +99,7 @@ const Activity = mongoose.model('Activity', activitySchema);
 // Health check - IMPORTANT for debugging
 // Routes
 app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.send("API is running");
 });
 
 app.get('/api/health', (req, res) => {
