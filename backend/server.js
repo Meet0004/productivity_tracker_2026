@@ -10,7 +10,7 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
-res.sendFile(path.join(__dirname, "public", "index.html"));
+
 
 console.log('Starting server...');
 console.log('MongoDB URI exists:', !!process.env.MONGODB_URI);
