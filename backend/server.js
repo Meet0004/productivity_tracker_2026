@@ -95,13 +95,9 @@ const Activity = mongoose.model('Activity', activitySchema);
 // Routes
 
 // Health check - IMPORTANT for debugging
-app.get('/', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    message: 'Productivity Tracker API is running',
-    mongoStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-    timestamp: new Date().toISOString()
-  });
+// Routes
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 app.get('/api/health', (req, res) => {
