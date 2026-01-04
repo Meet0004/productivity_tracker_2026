@@ -90,12 +90,14 @@ const activitySchema = new mongoose.Schema({
   jobOffers: { type: Number, default: 0, min: 0 },
   skillWork: { type: Boolean, default: false },
   startupWork: { type: Boolean, default: false },
+  junkFood: { type: Number, default: 0, min: 0 },
   totalActivityCount: { type: Number, default: 0 }
 }, {
   timestamps: true
 });
 
 // Calculate total activity count before saving
+// NOTE: junkFood does NOT affect the dashboard count
 activitySchema.pre('save', function(next) {
   let count = 0;
   
@@ -112,6 +114,8 @@ activitySchema.pre('save', function(next) {
   count += Math.min(this.water, 2);
   count += Math.min(this.jobsApplied, 2);
   count += Math.min(this.jobOffers, 2);
+  
+  // junkFood is NOT included in totalActivityCount
   
   this.totalActivityCount = count;
   next();
@@ -193,6 +197,7 @@ app.get('/api/activities/:date', async (req, res) => {
         jobOffers: 0,
         skillWork: false,
         startupWork: false,
+        junkFood: 0,
         totalActivityCount: 0
       });
     }
@@ -234,6 +239,14 @@ app.patch('/api/activities/:date/:field', async (req, res) => {
     const { date, field } = req.params;
     const { value } = req.body;
 
+    // Validate that the field is a known activity field
+    const validFields = ['bath', 'problems', 'workout', 'walk', 'water', 'meditation', 
+                        'jobsApplied', 'jobOffers', 'skillWork', 'startupWork', 'junkFood'];
+    
+    if (!validFields.includes(field)) {
+      return res.status(400).json({ error: `Invalid field: ${field}` });
+    }
+
     let activity = await Activity.findOne({ date });
 
     if (!activity) {
@@ -242,7 +255,7 @@ app.patch('/api/activities/:date/:field', async (req, res) => {
 
     activity[field] = value;
 
-    // Recalculate
+    // Recalculate (junkFood does NOT affect count)
     let count = 0;
     if (activity.bath) count++;
     if (activity.workout) count++;
@@ -255,6 +268,8 @@ app.patch('/api/activities/:date/:field', async (req, res) => {
     count += Math.min(activity.water || 0, 2);
     count += Math.min(activity.jobsApplied || 0, 2);
     count += Math.min(activity.jobOffers || 0, 2);
+    
+    // junkFood is NOT included in totalActivityCount
 
     activity.totalActivityCount = count;
 
@@ -287,6 +302,7 @@ app.get('/api/statistics/:startDate/:endDate', async (req, res) => {
       totalJobOffers: activities.reduce((sum, a) => sum + a.jobOffers, 0),
       skillWorkDays: activities.filter(a => a.skillWork).length,
       startupWorkDays: activities.filter(a => a.startupWork).length,
+      totalJunkFood: activities.reduce((sum, a) => sum + (a.junkFood || 0), 0),
       averageActivityCount: activities.length > 0 
         ? activities.reduce((sum, a) => sum + a.totalActivityCount, 0) / activities.length 
         : 0

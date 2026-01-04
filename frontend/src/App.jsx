@@ -12,16 +12,17 @@ const App = () => {
   const [currentActivity, setCurrentActivity] = useState(null);
 
   const activityConfig = {
-    bath: { label: 'Bath', type: 'boolean', color: '#60a5fa', icon: '🛁' },
-    problems: { label: 'Problems Solved', type: 'number', color: '#f59e0b', icon: '💻' },
-    workout: { label: 'Workout', type: 'boolean', color: '#ef4444', icon: '💪' },
-    walk: { label: 'Walk (KM)', type: 'number', color: '#10b981', icon: '🚶' },
-    water: { label: 'Water', type: 'number', color: '#06b6d4', icon: '💧' },
-    meditation: { label: 'Meditation/Yoga', type: 'boolean', color: '#8b5cf6', icon: '🧘' },
-    jobsApplied: { label: 'Jobs Applied', type: 'number', color: '#3b82f6', icon: '💼' },
-    jobOffers: { label: 'Job Offers', type: 'number', color: '#f97316', icon: '🏆' },
-    skillWork: { label: 'Skill Upgrade Work', type: 'boolean', color: '#ec4899', icon: '📚' },
-    startupWork: { label: 'Startup Work', type: 'boolean', color: '#6366f1', icon: '🚀' }
+    bath: { label: 'Bath', type: 'boolean', color: '#60a5fa', icon: '🛁', affectsDashboard: true },
+    problems: { label: 'Problems Solved', type: 'number', color: '#f59e0b', icon: '💻', affectsDashboard: true },
+    workout: { label: 'Workout', type: 'boolean', color: '#ef4444', icon: '💪', affectsDashboard: true },
+    walk: { label: 'Walk (KM)', type: 'number', color: '#10b981', icon: '🚶', affectsDashboard: true },
+    water: { label: 'Water', type: 'number', color: '#06b6d4', icon: '💧', affectsDashboard: true },
+    meditation: { label: 'Meditation/Yoga', type: 'boolean', color: '#8b5cf6', icon: '🧘', affectsDashboard: true },
+    jobsApplied: { label: 'Jobs Applied', type: 'number', color: '#3b82f6', icon: '💼', affectsDashboard: true },
+    jobOffers: { label: 'Job Offers', type: 'number', color: '#f97316', icon: '🏆', affectsDashboard: true },
+    skillWork: { label: 'Skill Upgrade Work', type: 'boolean', color: '#ec4899', icon: '📚', affectsDashboard: true },
+    startupWork: { label: 'Startup Work', type: 'boolean', color: '#6366f1', icon: '🚀', affectsDashboard: true },
+    junkFood: { label: 'Junk Food Ate', type: 'number', color: '#dc2626', icon: '🍔', affectsDashboard: false }
   };
 
   useEffect(() => {
@@ -65,6 +66,15 @@ const App = () => {
       console.log('Updated activity:', response.data);
       console.log('Total activity count:', response.data.totalActivityCount);
       
+      // Check if junkFood field exists in response
+      if (field === 'junkFood') {
+        console.log('Junk Food value:', response.data.junkFood);
+        if (response.data.junkFood === undefined) {
+          console.error('⚠️ WARNING: junkFood field is missing from server response!');
+          console.error('⚠️ Please redeploy your backend with the updated schema.');
+        }
+      }
+      
       // Update local state immediately
       const updatedActivities = { ...activities };
       updatedActivities[selectedDate] = response.data;
@@ -74,6 +84,10 @@ const App = () => {
       setCurrentActivity(response.data);
     } catch (error) {
       console.error('Error updating activity:', error);
+      if (error.response?.status === 400 && field === 'junkFood') {
+        console.error('⚠️ Backend server does not recognize junkFood field yet.');
+        console.error('⚠️ Please redeploy your backend with the updated server.js');
+      }
     }
   };
 
@@ -146,6 +160,7 @@ const App = () => {
                   let tooltipText = '';
                   
                   if (filterActivity) {
+                    // Individual activity page - show that specific activity's data
                     const dayData = activities[date];
                     if (dayData && dayData[filterActivity] !== undefined) {
                       const value = dayData[filterActivity];
@@ -155,13 +170,16 @@ const App = () => {
                     }
                     tooltipText = `${date}: ${count} ${activityConfig[filterActivity].label}`;
                   } else {
-                    // Dashboard view - show all activities
+                    // Dashboard view - show only activities that affect dashboard
                     count = getActivityCount(date);
                     const dayData = activities[date];
                     
                     if (dayData) {
                       const details = [];
                       Object.entries(activityConfig).forEach(([key, config]) => {
+                        // Skip activities that don't affect dashboard in tooltip
+                        if (!config.affectsDashboard) return;
+                        
                         const value = dayData[key];
                         if (config.type === 'boolean' && value) {
                           details.push(`${config.label}`);
@@ -209,7 +227,9 @@ const App = () => {
 
   const renderActivityPage = (activityKey) => {
     const config = activityConfig[activityKey];
-    const currentValue = currentActivity ? currentActivity[activityKey] : (config.type === 'boolean' ? false : 0);
+    const currentValue = currentActivity && currentActivity[activityKey] !== undefined 
+      ? currentActivity[activityKey] 
+      : (config.type === 'boolean' ? false : 0);
 
     return (
       <div className="activity-page">
@@ -242,13 +262,13 @@ const App = () => {
           ) : (
             <div className="number-container">
               <label className="number-label">
-                {activityKey === 'walk' ? 'Kilometers:' : 'Count:'}
+                {activityKey === 'walk' ? 'Kilometers:' : activityKey === 'junkFood' ? 'Items:' : 'Count:'}
               </label>
               <input
                 type="number"
                 min="0"
                 step={activityKey === 'walk' ? '0.5' : '1'}
-                value={currentValue}
+                value={currentValue || 0}
                 onChange={(e) => updateActivity(activityKey, parseFloat(e.target.value) || 0)}
                 className="number-input"
               />
