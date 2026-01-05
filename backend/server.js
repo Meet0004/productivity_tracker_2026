@@ -1,4 +1,4 @@
-// server.js
+// server.js - DYNAMIC VERSION
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -6,7 +6,23 @@ require('dotenv').config();
 
 const app = express();
 
-// Middleware - Allow multiple origins
+// 🎯 ACTIVITY CONFIGURATION - Add new activities here!
+const ACTIVITY_FIELDS = {
+  bath: { type: 'boolean', default: false },
+  problems: { type: 'number', default: 0 },
+  workout: { type: 'boolean', default: false },
+  walk: { type: 'number', default: 0 },
+  water: { type: 'number', default: 0 },
+  meditation: { type: 'boolean', default: false },
+  jobsApplied: { type: 'number', default: 0 },
+  jobOffers: { type: 'number', default: 0 },
+  skillWork: { type: 'boolean', default: false },
+  startupWork: { type: 'boolean', default: false },
+  // ✅ ADD YOUR NEW FIELDS HERE!
+  junkFood: { type: 'number', default: 0 }
+};
+
+// Middleware
 const allowedOrigins = [
   'http://localhost:3000',
   'https://productivity-tracker-2026.vercel.app',
@@ -15,9 +31,7 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
-    
     if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
       callback(null, true);
     } else {
@@ -28,22 +42,18 @@ app.use(cors({
 }));
 app.use(express.json());
 
-console.log('Starting server...');
+console.log('Starting dynamic server...');
 console.log('Environment:', process.env.NODE_ENV || 'development');
 console.log('MongoDB URI exists:', !!process.env.MONGODB_URI);
-console.log('Port:', process.env.PORT || 5000);
 
-// MongoDB Connection with better error handling
+// MongoDB Connection
 const connectDB = async () => {
   try {
     if (!process.env.MONGODB_URI) {
       throw new Error('MONGODB_URI is not defined in environment variables');
     }
     
-    const mongoURI = process.env.MONGODB_URI;
-    console.log('Attempting to connect to MongoDB...');
-    
-    await mongoose.connect(mongoURI, {
+    await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
       serverSelectionTimeoutMS: 10000,
@@ -53,8 +63,6 @@ const connectDB = async () => {
     console.log('✅ Connected to MongoDB successfully');
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
-    console.error('Full error:', error);
-    // In production, we should exit if DB connection fails
     if (process.env.NODE_ENV === 'production') {
       process.exit(1);
     }
@@ -63,57 +71,54 @@ const connectDB = async () => {
 
 connectDB();
 
-const db = mongoose.connection;
-db.on('error', (error) => {
-  console.error('MongoDB connection error:', error);
-});
-db.once('open', () => {
-  console.log('✅ MongoDB connection opened');
-});
+// 🚀 DYNAMIC SCHEMA GENERATION
+const generateActivitySchema = () => {
+  const schemaDefinition = {
+    date: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+      match: /^\d{4}-\d{2}-\d{2}$/
+    }
+  };
 
-// Activity Schema
-const activitySchema = new mongoose.Schema({
-  date: {
-    type: String,
-    required: true,
-    unique: true,
-    index: true,
-    match: /^\d{4}-\d{2}-\d{2}$/
-  },
-  bath: { type: Boolean, default: false },
-  problems: { type: Number, default: 0, min: 0 },
-  workout: { type: Boolean, default: false },
-  walk: { type: Number, default: 0, min: 0 },
-  water: { type: Number, default: 0, min: 0 },
-  meditation: { type: Boolean, default: false },
-  jobsApplied: { type: Number, default: 0, min: 0 },
-  jobOffers: { type: Number, default: 0, min: 0 },
-  skillWork: { type: Boolean, default: false },
-  startupWork: { type: Boolean, default: false },
-  totalActivityCount: { type: Number, default: 0 }
-}, {
-  timestamps: true
-});
+  // Automatically add all fields from ACTIVITY_FIELDS
+  Object.entries(ACTIVITY_FIELDS).forEach(([fieldName, config]) => {
+    if (config.type === 'boolean') {
+      schemaDefinition[fieldName] = { type: Boolean, default: config.default };
+    } else if (config.type === 'number') {
+      schemaDefinition[fieldName] = { type: Number, default: config.default, min: 0 };
+    }
+  });
 
-// Calculate total activity count before saving
-activitySchema.pre('save', function(next) {
+  schemaDefinition.totalActivityCount = { type: Number, default: 0 };
+
+  return new mongoose.Schema(schemaDefinition, { timestamps: true });
+};
+
+const activitySchema = generateActivitySchema();
+
+// 🚀 DYNAMIC ACTIVITY COUNT CALCULATION
+const calculateActivityCount = (activityDoc) => {
   let count = 0;
   
-  // Boolean activities count as 1 each
-  if (this.bath) count += 1;
-  if (this.workout) count += 1;
-  if (this.meditation) count += 1;
-  if (this.skillWork) count += 1;
-  if (this.startupWork) count += 1;
+  Object.entries(ACTIVITY_FIELDS).forEach(([fieldName, config]) => {
+    const value = activityDoc[fieldName];
+    
+    if (config.type === 'boolean' && value) {
+      count += 1;
+    } else if (config.type === 'number' && value > 0) {
+      // Cap numeric activities at 2 for heatmap calculation
+      count += Math.min(value, 2);
+    }
+  });
   
-  // Numeric activities - cap each at 2 for heatmap calculation
-  count += Math.min(this.problems, 2);
-  count += Math.min(this.walk, 2);
-  count += Math.min(this.water, 2);
-  count += Math.min(this.jobsApplied, 2);
-  count += Math.min(this.jobOffers, 2);
-  
-  this.totalActivityCount = count;
+  return count;
+};
+
+activitySchema.pre('save', function(next) {
+  this.totalActivityCount = calculateActivityCount(this);
   next();
 });
 
@@ -121,37 +126,30 @@ const Activity = mongoose.model('Activity', activitySchema);
 
 // Routes
 
-// Root route - return JSON for API
 app.get("/", (req, res) => {
   res.json({ 
-    message: "Productivity Tracker API is running",
+    message: "Dynamic Productivity Tracker API",
     status: "ok",
-    version: "1.0.0",
+    version: "2.0.0 (Dynamic)",
+    trackedActivities: Object.keys(ACTIVITY_FIELDS),
     endpoints: {
       health: "/api/health",
       activities: "/api/activities/:date",
       yearActivities: "/api/activities/year/:year",
-      monthActivities: "/api/activities/month/:year/:month",
       statistics: "/api/statistics/:startDate/:endDate"
     }
   });
 });
 
-// Health check endpoint
 app.get('/api/health', (req, res) => {
   const mongoStatus = mongoose.connection.readyState;
-  const statusMap = {
-    0: 'disconnected',
-    1: 'connected',
-    2: 'connecting',
-    3: 'disconnecting'
-  };
+  const statusMap = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
   
   res.json({ 
     status: 'ok', 
-    message: 'Server is running',
+    message: 'Dynamic server is running',
     mongoStatus: statusMap[mongoStatus] || 'unknown',
-    mongoReadyState: mongoStatus,
+    trackedActivities: Object.keys(ACTIVITY_FIELDS).length,
     timestamp: new Date().toISOString()
   });
 });
@@ -178,23 +176,15 @@ app.get('/api/activities/year/:year', async (req, res) => {
 app.get('/api/activities/:date', async (req, res) => {
   try {
     const { date } = req.params;
-    const activity = await Activity.findOne({ date });
+    let activity = await Activity.findOne({ date });
     
     if (!activity) {
-      return res.json({
-        date,
-        bath: false,
-        problems: 0,
-        workout: false,
-        walk: 0,
-        water: 0,
-        meditation: false,
-        jobsApplied: 0,
-        jobOffers: 0,
-        skillWork: false,
-        startupWork: false,
-        totalActivityCount: 0
+      // Create default activity object dynamically
+      const defaultActivity = { date, totalActivityCount: 0 };
+      Object.entries(ACTIVITY_FIELDS).forEach(([fieldName, config]) => {
+        defaultActivity[fieldName] = config.default;
       });
+      return res.json(defaultActivity);
     }
     
     res.json(activity);
@@ -210,7 +200,6 @@ app.post('/api/activities/:date', async (req, res) => {
     const { date } = req.params;
     const activityData = req.body;
     
-    // Validate date format (YYYY-MM-DD)
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
     }
@@ -228,37 +217,41 @@ app.post('/api/activities/:date', async (req, res) => {
   }
 });
 
-// Update specific field for a date
+// 🚀 DYNAMIC UPDATE - Works with ANY field automatically!
 app.patch('/api/activities/:date/:field', async (req, res) => {
   try {
     const { date, field } = req.params;
     const { value } = req.body;
 
+    // Check if field is valid
+    if (!(field in ACTIVITY_FIELDS)) {
+      return res.status(400).json({ 
+        error: `Invalid field: ${field}`, 
+        validFields: Object.keys(ACTIVITY_FIELDS) 
+      });
+    }
+
     let activity = await Activity.findOne({ date });
 
     if (!activity) {
-      activity = new Activity({ date });
+      // Create new activity with defaults
+      const defaultActivity = { date };
+      Object.entries(ACTIVITY_FIELDS).forEach(([fieldName, config]) => {
+        defaultActivity[fieldName] = config.default;
+      });
+      activity = new Activity(defaultActivity);
     }
 
+    // Update the field
     activity[field] = value;
 
-    // Recalculate
-    let count = 0;
-    if (activity.bath) count++;
-    if (activity.workout) count++;
-    if (activity.meditation) count++;
-    if (activity.skillWork) count++;
-    if (activity.startupWork) count++;
-
-    count += Math.min(activity.problems || 0, 2);
-    count += Math.min(activity.walk || 0, 2);
-    count += Math.min(activity.water || 0, 2);
-    count += Math.min(activity.jobsApplied || 0, 2);
-    count += Math.min(activity.jobOffers || 0, 2);
-
-    activity.totalActivityCount = count;
+    // Recalculate total activity count dynamically
+    activity.totalActivityCount = calculateActivityCount(activity);
 
     await activity.save();
+
+    console.log(`✅ Updated ${field} for ${date}:`, value);
+    console.log(`📊 Total activity count:`, activity.totalActivityCount);
 
     res.json(activity);
   } catch (error) {
@@ -267,7 +260,7 @@ app.patch('/api/activities/:date/:field', async (req, res) => {
   }
 });
 
-// Get statistics for a date range
+// 🚀 DYNAMIC STATISTICS
 app.get('/api/statistics/:startDate/:endDate', async (req, res) => {
   try {
     const { startDate, endDate } = req.params;
@@ -276,21 +269,21 @@ app.get('/api/statistics/:startDate/:endDate', async (req, res) => {
       date: { $gte: startDate, $lte: endDate }
     });
     
-    const stats = {
-      totalDays: activities.length,
-      bathDays: activities.filter(a => a.bath).length,
-      totalProblems: activities.reduce((sum, a) => sum + a.problems, 0),
-      workoutDays: activities.filter(a => a.workout).length,
-      totalWalkKm: activities.reduce((sum, a) => sum + (a.walk || 0), 0),
-      meditationDays: activities.filter(a => a.meditation).length,
-      totalJobsApplied: activities.reduce((sum, a) => sum + a.jobsApplied, 0),
-      totalJobOffers: activities.reduce((sum, a) => sum + a.jobOffers, 0),
-      skillWorkDays: activities.filter(a => a.skillWork).length,
-      startupWorkDays: activities.filter(a => a.startupWork).length,
-      averageActivityCount: activities.length > 0 
-        ? activities.reduce((sum, a) => sum + a.totalActivityCount, 0) / activities.length 
-        : 0
-    };
+    const stats = { totalDays: activities.length };
+    
+    // Dynamically calculate stats for all fields
+    Object.entries(ACTIVITY_FIELDS).forEach(([fieldName, config]) => {
+      if (config.type === 'boolean') {
+        stats[`${fieldName}Days`] = activities.filter(a => a[fieldName]).length;
+      } else if (config.type === 'number') {
+        stats[`total${fieldName.charAt(0).toUpperCase() + fieldName.slice(1)}`] = 
+          activities.reduce((sum, a) => sum + (a[fieldName] || 0), 0);
+      }
+    });
+    
+    stats.averageActivityCount = activities.length > 0 
+      ? activities.reduce((sum, a) => sum + a.totalActivityCount, 0) / activities.length 
+      : 0;
     
     res.json(stats);
   } catch (error) {
@@ -299,7 +292,6 @@ app.get('/api/statistics/:startDate/:endDate', async (req, res) => {
   }
 });
 
-// Delete activity for a date
 app.delete('/api/activities/:date', async (req, res) => {
   try {
     const { date } = req.params;
@@ -311,49 +303,23 @@ app.delete('/api/activities/:date', async (req, res) => {
   }
 });
 
-// Get monthly summary
-app.get('/api/activities/month/:year/:month', async (req, res) => {
-  try {
-    const { year, month } = req.params;
-    const paddedMonth = month.padStart(2, '0');
-    const startDate = `${year}-${paddedMonth}-01`;
-    const endDate = `${year}-${paddedMonth}-31`;
-    
-    const activities = await Activity.find({
-      date: { $gte: startDate, $lte: endDate }
-    }).sort({ date: 1 });
-    
-    res.json(activities);
-  } catch (error) {
-    console.error('Error in /api/activities/month:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ 
-    error: 'Route not found', 
-    path: req.path,
-    method: req.method 
-  });
+  res.status(404).json({ error: 'Route not found', path: req.path, method: req.method });
 });
 
 // Error handler
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
-  res.status(500).json({ 
-    error: 'Internal server error', 
-    message: err.message 
-  });
+  res.status(500).json({ error: 'Internal server error', message: err.message });
 });
 
 const PORT = process.env.PORT || 5000;
 
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Server running on port ${PORT}`);
-  console.log(`🌐 Listening on http://0.0.0.0:${PORT}`);
-  console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`✅ Dynamic server running on port ${PORT}`);
+  console.log(`🎯 Tracking ${Object.keys(ACTIVITY_FIELDS).length} activities`);
+  console.log(`📋 Activities: ${Object.keys(ACTIVITY_FIELDS).join(', ')}`);
 });
 
 // Graceful shutdown
@@ -368,7 +334,6 @@ process.on('SIGTERM', () => {
   });
 });
 
-// Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled Promise Rejection:', err);
 });
