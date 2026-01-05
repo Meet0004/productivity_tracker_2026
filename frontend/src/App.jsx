@@ -1,20 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import { ShowerHead, Dumbbell, Footprints, Droplets, Brain, Briefcase, Trophy, BookOpen, Rocket, Pizza, Laptop, RefreshCw, LayoutDashboard    } from 'lucide-react'
 
 // 🎯 EASY CONFIGURATION - Just add your activities here!
 const ACTIVITY_CONFIG = {
-  bath: { label: 'Bath', type: 'boolean', color: '#60a5fa', icon: '🛁' },
-  problems: { label: 'Problems Solved', type: 'number', color: '#f59e0b', icon: '💻' },
-  workout: { label: 'Workout', type: 'boolean', color: '#ef4444', icon: '💪' },
-  walk: { label: 'Walk (KM)', type: 'number', color: '#10b981', icon: '🚶' },
-  water: { label: 'Water', type: 'number', color: '#06b6d4', icon: '💧' },
-  meditation: { label: 'Meditation/Yoga', type: 'boolean', color: '#8b5cf6', icon: '🧘' },
-  jobsApplied: { label: 'Jobs Applied', type: 'number', color: '#3b82f6', icon: '💼' },
-  jobOffers: { label: 'Job Offers', type: 'number', color: '#f97316', icon: '🏆' },
-  skillWork: { label: 'Skill Upgrade Work', type: 'boolean', color: '#ec4899', icon: '📚' },
-  startupWork: { label: 'Startup Work', type: 'boolean', color: '#6366f1', icon: '🚀' },
-  // ✅ ADD YOUR NEW ACTIVITIES HERE - That's it!
-  junkFood: { label: 'Junk Food Count', type: 'number', color: '#dc2626', icon: '🍔' },
-};
+  bath:        { label: 'Bath',               type: 'boolean', color: '#60a5fa', icon: <ShowerHead size={20} color='#60a5fa' /> },
+  problems:    { label: 'Problems Solved',    type: 'number',  color: '#f59e0b', icon: <Laptop     size={20} color='#f59e0b'/> },
+  workout:     { label: 'Workout',            type: 'boolean', color: '#ef4444', icon: <Dumbbell   size={20} color='#ef4444'/> },
+  walk:        { label: 'Walk (KM)',          type: 'number',  color: '#10b981', icon: <Footprints size={20} color='#10b981'/> },
+  water:       { label: 'Water',              type: 'number',  color: '#06b6d4', icon: <Droplets   size={20} color='#06b6d4'/> },
+  meditation:  { label: 'Meditation/Yoga',    type: 'boolean', color: '#8b5cf6', icon: <Brain      size={20} color='#8b5cf6'/> },
+  jobsApplied: { label: 'Jobs Applied',       type: 'number',  color: '#3b82f6', icon: <Briefcase  size={20} color='#3b82f6'/> },
+  jobOffers:   { label: 'Job Offers',         type: 'number',  color: '#f97316', icon: <Trophy     size={20} color='#f97316'/> },
+  skillWork:   { label: 'Skill Upgrade Work', type: 'boolean', color: '#ec4899', icon: <BookOpen   size={20} color='#ec4899'/> },
+  startupWork: { label: 'Startup Work',       type: 'boolean', color: '#6366f1', icon: <Rocket     size={20} color='#6366f1'/> },
+  junkFood:    { label: 'Junk Food Count',    type: 'number',  color: '#dc2626', icon: <Pizza      size={20} color='#dc2626'/> },
+}
+
 
 const API_URL = 'http://localhost:5000/api';
 
@@ -69,7 +70,7 @@ const DynamicTracker = () => {
         body: JSON.stringify({ value })
       });
       const data = await response.json();
-      
+
       const updatedActivities = { ...activities };
       updatedActivities[selectedDate] = data;
       setActivities(updatedActivities);
@@ -94,7 +95,7 @@ const DynamicTracker = () => {
       if (count <= 6) return '#dc2626';       // Bright red
       return '#ef4444';                        // Brightest red (too much!)
     }
-    
+
     // Default GREEN color scheme for all other activities
     if (count === 0) return '#1f2937';
     if (count === 1) return '#047857';
@@ -109,7 +110,7 @@ const DynamicTracker = () => {
       const firstDay = new Date(Date.UTC(2026, month, 1));
       const lastDay = new Date(Date.UTC(2026, month + 1, 0));
       const days = [];
-      
+
       for (let day = 1; day <= lastDay.getDate(); day++) {
         const year = 2026;
         const monthStr = String(month + 1).padStart(2, '0');
@@ -117,7 +118,7 @@ const DynamicTracker = () => {
         const dateStr = `${year}-${monthStr}-${dayStr}`;
         days.push({ date: dateStr, day });
       }
-      
+
       months.push({
         name: firstDay.toLocaleString('default', { month: 'long' }),
         days,
@@ -129,7 +130,7 @@ const DynamicTracker = () => {
 
   const renderHeatmap = (filterActivity = null) => {
     const months = generateYear2026();
-    
+
     return (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', padding: '20px' }}>
         {months.map((month, idx) => (
@@ -148,13 +149,13 @@ const DynamicTracker = () => {
                 {month.days.map(({ date, day }) => {
                   let count = 0;
                   let tooltipText = '';
-                  
+
                   if (filterActivity) {
                     const dayData = activities[date];
                     if (dayData && dayData[filterActivity] !== undefined) {
                       const value = dayData[filterActivity];
                       // For individual activity heatmaps, show actual value (capped at 2 for numeric)
-                      count = ACTIVITY_CONFIG[filterActivity].type === 'boolean' 
+                      count = ACTIVITY_CONFIG[filterActivity].type === 'boolean'
                         ? (value ? 1 : 0)
                         : Math.min((value || 0), 2);
                     }
@@ -163,7 +164,7 @@ const DynamicTracker = () => {
                     // Dashboard view - use totalActivityCount from backend
                     count = getActivityCount(date);
                     const dayData = activities[date];
-                    
+
                     if (dayData) {
                       const details = [];
                       Object.entries(ACTIVITY_CONFIG).forEach(([key, config]) => {
@@ -179,9 +180,9 @@ const DynamicTracker = () => {
                       tooltipText = `${date}: No activities`;
                     }
                   }
-                  
+
                   const color = getHeatmapColor(count, filterActivity);
-                  
+
                   return (
                     <div
                       key={date}
@@ -308,50 +309,73 @@ const DynamicTracker = () => {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#0f172a', color: '#fff' }}>
       <nav style={{ width: '250px', background: '#1e293b', padding: '20px', borderRight: '1px solid #334155', overflowY: 'auto' }}>
-        <h1 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '30px' }}>📊 2026 Tracker</h1>
-        
+<h1
+  style={{
+    fontSize: '20px',
+    fontWeight: '700',
+    marginBottom: '30px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px'
+  }}
+>
+  
+  Dashboard · 2026 Tracker
+</h1>
         <button
-          onClick={() => setCurrentRoute('dashboard')}
-          style={{
-            width: '100%',
-            background: currentRoute === 'dashboard' ? '#3b82f6' : 'transparent',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '6px',
-            padding: '12px 16px',
-            fontSize: '14px',
-            cursor: 'pointer',
-            textAlign: 'left',
-            marginBottom: '20px'
-          }}
-        >
-          🏠 Dashboard
-        </button>
+  onClick={() => setCurrentRoute('dashboard')}
+  style={{
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+
+    background: currentRoute === 'dashboard' ? '#3b82f6' : 'transparent',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '6px',
+    padding: '12px 16px',
+    fontSize: '14px',
+    cursor: 'pointer',
+    textAlign: 'left',
+    marginBottom: '20px'
+  }}
+>
+  <LayoutDashboard size={20} color="#f89c23ff" />
+  <span>Dashboard</span>
+</button>
+
 
         <div style={{ marginBottom: '12px', color: '#9ca3af', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           Activities
         </div>
         {Object.entries(ACTIVITY_CONFIG).map(([key, config]) => (
-          <button
-            key={key}
-            onClick={() => setCurrentRoute(key)}
-            style={{
-              width: '100%',
-              background: currentRoute === key ? '#3b82f6' : 'transparent',
-              color: '#fff',
-              border: 'none',
-              borderLeft: `3px solid ${config.color}`,
-              borderRadius: '6px',
-              padding: '12px 16px',
-              fontSize: '14px',
-              cursor: 'pointer',
-              textAlign: 'left',
-              marginBottom: '6px'
-            }}
-          >
-            {config.icon} {config.label}
-          </button>
-        ))}
+  <button
+    key={key}
+    onClick={() => setCurrentRoute(key)}
+    style={{
+      width: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+
+      background: currentRoute === key ? '#3b82f6' : 'transparent',
+      color: '#fff',
+      border: 'none',
+      borderLeft: `3px solid ${config.color}`,
+      borderRadius: '6px',
+      padding: '12px 16px',
+      fontSize: '14px',
+      cursor: 'pointer',
+      textAlign: 'left',
+      marginBottom: '6px'
+    }}
+  >
+    {config.icon}
+    <span>{config.label}</span>
+  </button>
+))}
+
       </nav>
 
       <main style={{ flex: 1, overflowY: 'auto' }}>
@@ -362,7 +386,7 @@ const DynamicTracker = () => {
                 <h1 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '6px' }}>2026 Productivity Dashboard</h1>
                 <p style={{ color: '#9ca3af' }}>Track your entire year with visual heatmaps</p>
               </div>
-              <button 
+              <button
                 onClick={loadYearData}
                 style={{
                   background: '#3b82f6',
@@ -375,7 +399,7 @@ const DynamicTracker = () => {
                   fontWeight: '500'
                 }}
               >
-                🔄 Refresh Data
+                <RefreshCw size={20} color="#ffffffff" /> 
               </button>
             </div>
 
