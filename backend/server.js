@@ -29,6 +29,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
+
 app.use(cors({
   origin: function(origin, callback) {
     if (!origin) return callback(null, true);
