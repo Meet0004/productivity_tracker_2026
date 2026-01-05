@@ -85,7 +85,17 @@ const DynamicTracker = () => {
     return dayData.totalActivityCount || 0;
   };
 
-  const getHeatmapColor = (count) => {
+  const getHeatmapColor = (count, activityType = null) => {
+    // Special RED color scheme for junkFood (warning colors)
+    if (activityType === 'junkFood') {
+      if (count === 0) return '#1f2937';      // Dark gray (no junk food - good!)
+      if (count === 1) return '#7f1d1d';      // Dark red
+      if (count <= 3) return '#991b1b';       // Medium-dark red
+      if (count <= 6) return '#dc2626';       // Bright red
+      return '#ef4444';                        // Brightest red (too much!)
+    }
+    
+    // Default GREEN color scheme for all other activities
     if (count === 0) return '#1f2937';
     if (count === 1) return '#047857';
     if (count <= 3) return '#059669';
@@ -143,12 +153,14 @@ const DynamicTracker = () => {
                     const dayData = activities[date];
                     if (dayData && dayData[filterActivity] !== undefined) {
                       const value = dayData[filterActivity];
+                      // For individual activity heatmaps, show actual value (capped at 2 for numeric)
                       count = ACTIVITY_CONFIG[filterActivity].type === 'boolean' 
                         ? (value ? 1 : 0)
-                        : (value || 0);
+                        : Math.min((value || 0), 2);
                     }
-                    tooltipText = `${date}: ${count} ${ACTIVITY_CONFIG[filterActivity].label}`;
+                    tooltipText = `${date}: ${dayData?.[filterActivity] || 0} ${ACTIVITY_CONFIG[filterActivity].label}`;
                   } else {
+                    // Dashboard view - use totalActivityCount from backend
                     count = getActivityCount(date);
                     const dayData = activities[date];
                     
@@ -168,7 +180,7 @@ const DynamicTracker = () => {
                     }
                   }
                   
-                  const color = getHeatmapColor(count);
+                  const color = getHeatmapColor(count, filterActivity);
                   
                   return (
                     <div
