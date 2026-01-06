@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShowerHead, Dumbbell, Footprints, Droplets, Brain, Briefcase, Trophy, BookOpen, Rocket, Pizza, Laptop, RefreshCw, LayoutDashboard    } from 'lucide-react'
+import { ShowerHead, Dumbbell, Footprints, Droplets, Brain, Briefcase, Trophy, BookOpen, Rocket, Pizza, Laptop, RefreshCw, LayoutDashboard, Menu, X } from 'lucide-react'
 
 // 🎯 EASY CONFIGURATION - Just add your activities here!
 const ACTIVITY_CONFIG = {
@@ -16,9 +16,7 @@ const ACTIVITY_CONFIG = {
   junkFood:    { label: 'Junk Food Count',    type: 'number',  color: '#dc2626', icon: <Pizza      size={20} color='#dc2626'/> },
 }
 
-
 const API_URL = process.env.REACT_APP_API_URL;
-
 
 const DynamicTracker = () => {
   const [currentRoute, setCurrentRoute] = useState('dashboard');
@@ -26,6 +24,7 @@ const DynamicTracker = () => {
   const [activities, setActivities] = useState({});
   const [loading, setLoading] = useState(true);
   const [currentActivity, setCurrentActivity] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     loadYearData();
@@ -88,16 +87,14 @@ const DynamicTracker = () => {
   };
 
   const getHeatmapColor = (count, activityType = null) => {
-    // Special RED color scheme for junkFood (warning colors)
     if (activityType === 'junkFood') {
-      if (count === 0) return '#1f2937';      // Dark gray (no junk food - good!)
-      if (count === 1) return '#7f1d1d';      // Dark red
-      if (count <= 3) return '#991b1b';       // Medium-dark red
-      if (count <= 6) return '#dc2626';       // Bright red
-      return '#ef4444';                        // Brightest red (too much!)
+      if (count === 0) return '#1f2937';
+      if (count === 1) return '#7f1d1d';
+      if (count <= 3) return '#991b1b';
+      if (count <= 6) return '#dc2626';
+      return '#ef4444';
     }
 
-    // Default GREEN color scheme for all other activities
     if (count === 0) return '#1f2937';
     if (count === 1) return '#047857';
     if (count <= 3) return '#059669';
@@ -133,7 +130,12 @@ const DynamicTracker = () => {
     const months = generateYear2026();
 
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', padding: '20px' }}>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', 
+        gap: '20px', 
+        padding: '20px' 
+      }}>
         {months.map((month, idx) => (
           <div key={idx} style={{ background: '#111827', borderRadius: '8px', padding: '16px' }}>
             <h3 style={{ color: '#fff', fontSize: '14px', marginBottom: '12px', fontWeight: '600' }}>{month.name}</h3>
@@ -155,14 +157,12 @@ const DynamicTracker = () => {
                     const dayData = activities[date];
                     if (dayData && dayData[filterActivity] !== undefined) {
                       const value = dayData[filterActivity];
-                      // For individual activity heatmaps, show actual value (capped at 2 for numeric)
                       count = ACTIVITY_CONFIG[filterActivity].type === 'boolean'
                         ? (value ? 1 : 0)
                         : Math.min((value || 0), 2);
                     }
                     tooltipText = `${date}: ${dayData?.[filterActivity] || 0} ${ACTIVITY_CONFIG[filterActivity].label}`;
                   } else {
-                    // Dashboard view - use totalActivityCount from backend
                     count = getActivityCount(date);
                     const dayData = activities[date];
 
@@ -206,6 +206,7 @@ const DynamicTracker = () => {
                         if (currentRoute === 'dashboard') {
                           setCurrentRoute(Object.keys(ACTIVITY_CONFIG)[0]);
                         }
+                        setMenuOpen(false);
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.transform = 'scale(1.1)';
@@ -234,8 +235,24 @@ const DynamicTracker = () => {
 
     return (
       <div style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-          <h2 style={{ color: '#fff', fontSize: '24px', fontWeight: '600' }}>{config.icon} {config.label}</h2>
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: window.innerWidth < 640 ? 'column' : 'row',
+          gap: '16px',
+          justifyContent: 'space-between', 
+          alignItems: window.innerWidth < 640 ? 'flex-start' : 'center',
+          marginBottom: '30px' 
+        }}>
+          <h2 style={{ 
+            color: '#fff', 
+            fontSize: window.innerWidth < 640 ? '20px' : '24px',
+            fontWeight: '600',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            {config.icon} {config.label}
+          </h2>
           <input
             type="date"
             value={selectedDate}
@@ -248,7 +265,8 @@ const DynamicTracker = () => {
               border: '1px solid #374151',
               borderRadius: '6px',
               padding: '8px 12px',
-              fontSize: '14px'
+              fontSize: '14px',
+              width: window.innerWidth < 640 ? '100%' : 'auto'
             }}
           />
         </div>
@@ -282,7 +300,7 @@ const DynamicTracker = () => {
                   borderRadius: '6px',
                   padding: '10px 14px',
                   fontSize: '16px',
-                  width: '200px'
+                  width: window.innerWidth < 640 ? '100%' : '200px'
                 }}
               />
             </div>
@@ -299,93 +317,167 @@ const DynamicTracker = () => {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f172a', color: '#fff' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f172a', color: '#fff', padding: '20px' }}>
         <div style={{ width: '40px', height: '40px', border: '4px solid #374151', borderTop: '4px solid #3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-        <p style={{ marginTop: '16px' }}>Loading your 2026 productivity data...</p>
+        <p style={{ marginTop: '16px', textAlign: 'center' }}>Loading your 2026 productivity data...</p>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#0f172a', color: '#fff' }}>
-      <nav style={{ width: '250px', background: '#1e293b', padding: '20px', borderRight: '1px solid #334155', overflowY: 'auto' }}>
-<h1
-  style={{
-    fontSize: '20px',
-    fontWeight: '700',
-    marginBottom: '30px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px'
-  }}
->
-  
-  Dashboard · 2026 Tracker
-</h1>
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#0f172a', color: '#fff', position: 'relative' }}>
+      {/* Mobile Menu Button */}
+      <button
+        onClick={() => setMenuOpen(!menuOpen)}
+        style={{
+          display: window.innerWidth < 768 ? 'flex' : 'none',
+          position: 'fixed',
+          top: '16px',
+          left: '16px',
+          zIndex: 1000,
+          background: '#1e293b',
+          border: '1px solid #334155',
+          borderRadius: '8px',
+          padding: '10px',
+          cursor: 'pointer',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+      >
+        {menuOpen ? <X size={24} color="#fff" /> : <Menu size={24} color="#fff" />}
+      </button>
+
+      {/* Sidebar/Nav */}
+      <nav style={{ 
+        width: window.innerWidth < 768 ? '100%' : '250px',
+        maxWidth: window.innerWidth < 768 ? '280px' : '250px',
+        background: '#1e293b', 
+        padding: '20px', 
+        borderRight: '1px solid #334155',
+        overflowY: 'auto',
+        position: window.innerWidth < 768 ? 'fixed' : 'static',
+        height: window.innerWidth < 768 ? '100vh' : 'auto',
+        zIndex: 999,
+        left: window.innerWidth < 768 ? (menuOpen ? '0' : '-100%') : 'auto',
+        top: 0,
+        transition: 'left 0.3s ease-in-out'
+      }}>
+        <h1 style={{
+          fontSize: '20px',
+          fontWeight: '700',
+          marginBottom: '30px',
+          marginTop: window.innerWidth < 768 ? '50px' : '0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          Dashboard · 2026 Tracker
+        </h1>
+        
         <button
-  onClick={() => setCurrentRoute('dashboard')}
-  style={{
-    width: '100%',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-
-    background: currentRoute === 'dashboard' ? '#3b82f6' : 'transparent',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '6px',
-    padding: '12px 16px',
-    fontSize: '14px',
-    cursor: 'pointer',
-    textAlign: 'left',
-    marginBottom: '20px'
-  }}
->
-  <LayoutDashboard size={20} color="#f89c23ff" />
-  <span>Dashboard</span>
-</button>
-
+          onClick={() => {
+            setCurrentRoute('dashboard');
+            setMenuOpen(false);
+          }}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            background: currentRoute === 'dashboard' ? '#3b82f6' : 'transparent',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '6px',
+            padding: '12px 16px',
+            fontSize: '14px',
+            cursor: 'pointer',
+            textAlign: 'left',
+            marginBottom: '20px'
+          }}
+        >
+          <LayoutDashboard size={20} color="#f89c23ff" />
+          <span>Dashboard</span>
+        </button>
 
         <div style={{ marginBottom: '12px', color: '#9ca3af', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           Activities
         </div>
+        
         {Object.entries(ACTIVITY_CONFIG).map(([key, config]) => (
-  <button
-    key={key}
-    onClick={() => setCurrentRoute(key)}
-    style={{
-      width: '100%',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '10px',
-
-      background: currentRoute === key ? '#3b82f6' : 'transparent',
-      color: '#fff',
-      border: 'none',
-      borderLeft: `3px solid ${config.color}`,
-      borderRadius: '6px',
-      padding: '12px 16px',
-      fontSize: '14px',
-      cursor: 'pointer',
-      textAlign: 'left',
-      marginBottom: '6px'
-    }}
-  >
-    {config.icon}
-    <span>{config.label}</span>
-  </button>
-))}
-
+          <button
+            key={key}
+            onClick={() => {
+              setCurrentRoute(key);
+              setMenuOpen(false);
+            }}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              background: currentRoute === key ? '#3b82f6' : 'transparent',
+              color: '#fff',
+              border: 'none',
+              borderLeft: `3px solid ${config.color}`,
+              borderRadius: '6px',
+              padding: '12px 16px',
+              fontSize: '14px',
+              cursor: 'pointer',
+              textAlign: 'left',
+              marginBottom: '6px'
+            }}
+          >
+            {config.icon}
+            <span>{config.label}</span>
+          </button>
+        ))}
       </nav>
 
-      <main style={{ flex: 1, overflowY: 'auto' }}>
+      {/* Overlay for mobile */}
+      {menuOpen && window.innerWidth < 768 && (
+        <div
+          onClick={() => setMenuOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 998
+          }}
+        />
+      )}
+
+      {/* Main Content */}
+      <main style={{ 
+        flex: 1, 
+        overflowY: 'auto',
+        marginLeft: window.innerWidth < 768 ? '0' : '0'
+      }}>
         {currentRoute === 'dashboard' ? (
           <div>
-            <div style={{ padding: '20px 30px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ 
+              padding: window.innerWidth < 640 ? '60px 20px 20px' : '20px 30px',
+              borderBottom: '1px solid #334155', 
+              display: 'flex', 
+              flexDirection: window.innerWidth < 640 ? 'column' : 'row',
+              gap: window.innerWidth < 640 ? '16px' : '0',
+              justifyContent: 'space-between', 
+              alignItems: window.innerWidth < 640 ? 'flex-start' : 'center'
+            }}>
               <div>
-                <h1 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '6px' }}>2026 Productivity Dashboard</h1>
-                <p style={{ color: '#9ca3af' }}>Track your entire year with visual heatmaps</p>
+                <h1 style={{ 
+                  fontSize: window.innerWidth < 640 ? '22px' : '28px',
+                  fontWeight: '700', 
+                  marginBottom: '6px' 
+                }}>
+                  2026 Productivity Dashboard
+                </h1>
+                <p style={{ color: '#9ca3af', fontSize: window.innerWidth < 640 ? '14px' : '16px' }}>
+                  Track your entire year with visual heatmaps
+                </p>
               </div>
               <button
                 onClick={loadYearData}
@@ -397,14 +489,27 @@ const DynamicTracker = () => {
                   padding: '10px 20px',
                   fontSize: '14px',
                   cursor: 'pointer',
-                  fontWeight: '500'
+                  fontWeight: '500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  width: window.innerWidth < 640 ? '100%' : 'auto',
+                  justifyContent: 'center'
                 }}
               >
-                <RefreshCw size={20} color="#ffffffff" /> 
+                <RefreshCw size={20} /> Refresh
               </button>
             </div>
 
-            <div style={{ padding: '20px 30px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid #334155' }}>
+            <div style={{ 
+              padding: '20px', 
+              display: 'flex', 
+              flexWrap: 'wrap',
+              alignItems: 'center', 
+              gap: '12px', 
+              borderBottom: '1px solid #334155',
+              justifyContent: 'center'
+            }}>
               <span style={{ color: '#9ca3af', fontSize: '14px' }}>Less</span>
               <div style={{ display: 'flex', gap: '4px' }}>
                 <div style={{ width: '20px', height: '20px', backgroundColor: '#1f2937', borderRadius: '3px' }} title="0 activities"></div>
@@ -419,7 +524,9 @@ const DynamicTracker = () => {
             {renderHeatmap()}
           </div>
         ) : (
-          renderActivityPage(currentRoute)
+          <div style={{ paddingTop: window.innerWidth < 768 ? '60px' : '0' }}>
+            {renderActivityPage(currentRoute)}
+          </div>
         )}
       </main>
     </div>
