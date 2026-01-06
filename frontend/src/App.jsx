@@ -266,7 +266,7 @@ const DynamicTracker = () => {
               borderRadius: '6px',
               padding: '8px 12px',
               fontSize: '14px',
-              width: window.innerWidth < 640 ? '100%' : 'auto'
+              width: window.innerWidth < 640 ? '200px' : 'auto'
             }}
           />
         </div>
@@ -300,7 +300,7 @@ const DynamicTracker = () => {
                   borderRadius: '6px',
                   padding: '10px 14px',
                   fontSize: '16px',
-                  width: window.innerWidth < 640 ? '100%' : '200px'
+                  width: window.innerWidth < 640 ? '100px' : '200px'
                 }}
               />
             </div>
@@ -326,7 +326,14 @@ const DynamicTracker = () => {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#0f172a', color: '#fff', position: 'relative' }}>
+    <div style={{ 
+      display: 'flex', 
+      minHeight: '100vh', 
+      background: '#0f172a', 
+      color: '#fff', 
+      position: 'relative',
+      overflow: 'hidden' // Prevents background scrolling
+    }}>
       {/* Mobile Menu Button */}
       <button
         onClick={() => setMenuOpen(!menuOpen)}
@@ -454,7 +461,9 @@ const DynamicTracker = () => {
       <main style={{ 
         flex: 1, 
         overflowY: 'auto',
-        marginLeft: window.innerWidth < 768 ? '0' : '0'
+        overflowX: 'hidden', // Prevent horizontal scroll
+        marginLeft: window.innerWidth < 768 ? '0' : '0',
+        height: '100vh' // Fix height to prevent double scrolling
       }}>
         {currentRoute === 'dashboard' ? (
           <div>
