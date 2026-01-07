@@ -25,6 +25,7 @@ const DynamicTracker = () => {
   const [loading, setLoading] = useState(true);
   const [currentActivity, setCurrentActivity] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileTooltip, setMobileTooltip] = useState(null);
 
   useEffect(() => {
     loadYearData();
@@ -128,14 +129,75 @@ const DynamicTracker = () => {
 
   const renderHeatmap = (filterActivity = null) => {
     const months = generateYear2026();
+    const isMobile = window.innerWidth < 768;
 
     return (
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', 
         gap: '20px', 
-        padding: '20px' 
+        padding: '20px',
+        position: 'relative'
       }}>
+        {/* Mobile Tooltip Display */}
+        {isMobile && mobileTooltip && (
+          <div style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            background: '#1f2937',
+            border: '2px solid #3b82f6',
+            borderRadius: '12px',
+            padding: '20px',
+            zIndex: 10000,
+            maxWidth: '90%',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+            animation: 'fadeIn 0.2s ease-in'
+          }}>
+            <div style={{ 
+              color: '#fff', 
+              fontSize: '16px', 
+              fontWeight: '600',
+              marginBottom: '8px',
+              textAlign: 'center'
+            }}>
+              {mobileTooltip.date}
+            </div>
+            <div style={{ 
+              color: '#9ca3af', 
+              fontSize: '14px',
+              whiteSpace: 'pre-line',
+              textAlign: 'center'
+            }}>
+              {mobileTooltip.details}
+            </div>
+          </div>
+        )}
+        
+        {/* Overlay for mobile tooltip */}
+        {isMobile && mobileTooltip && (
+          <div
+            onClick={() => setMobileTooltip(null)}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.7)',
+              zIndex: 9999
+            }}
+          />
+        )}
+        
+        <style>{`
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+            to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          }
+        `}</style>
+
         {months.map((month, idx) => (
           <div key={idx} style={{ background: '#111827', borderRadius: '8px', padding: '16px' }}>
             <h3 style={{ color: '#fff', fontSize: '14px', marginBottom: '12px', fontWeight: '600' }}>{month.name}</h3>
@@ -200,21 +262,53 @@ const DynamicTracker = () => {
                         fontWeight: '500',
                         transition: 'all 0.2s'
                       }}
-                      title={tooltipText}
+                      title={!isMobile ? tooltipText : ''}
                       onClick={() => {
-                        setSelectedDate(date);
-                        if (currentRoute === 'dashboard') {
-                          setCurrentRoute(Object.keys(ACTIVITY_CONFIG)[0]);
+                        if (isMobile && currentRoute === 'dashboard') {
+                          // Mobile: Show tooltip for 3 seconds
+                          const details = [];
+                          const dayData = activities[date];
+                          
+                          if (dayData) {
+                            Object.entries(ACTIVITY_CONFIG).forEach(([key, config]) => {
+                              const value = dayData[key];
+                              if (config.type === 'boolean' && value) {
+                                details.push(`✓ ${config.label}`);
+                              } else if (config.type === 'number' && value > 0) {
+                                details.push(`${config.label}: ${value}`);
+                              }
+                            });
+                          }
+                          
+                          setMobileTooltip({
+                            date: date,
+                            details: details.length > 0 ? details.join('\n') : 'No activities logged'
+                          });
+                          
+                          // Auto-hide after 3 seconds
+                          setTimeout(() => {
+                            setMobileTooltip(null);
+                          }, 3000);
+                        } else {
+                          // Desktop or activity page: Navigate normally
+                          setSelectedDate(date);
+                          if (currentRoute === 'dashboard') {
+                            setCurrentRoute(Object.keys(ACTIVITY_CONFIG)[0]);
+                          }
+                          setMenuOpen(false);
                         }
-                        setMenuOpen(false);
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'scale(1.1)';
-                        e.currentTarget.style.boxShadow = '0 0 10px rgba(59, 130, 246, 0.5)';
+                        if (!isMobile) {
+                          e.currentTarget.style.transform = 'scale(1.1)';
+                          e.currentTarget.style.boxShadow = '0 0 10px rgba(59, 130, 246, 0.5)';
+                        }
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'scale(1)';
-                        e.currentTarget.style.boxShadow = 'none';
+                        if (!isMobile) {
+                          e.currentTarget.style.transform = 'scale(1)';
+                          e.currentTarget.style.boxShadow = 'none';
+                        }
                       }}
                     >
                       {day}
@@ -332,7 +426,7 @@ const DynamicTracker = () => {
       background: '#0f172a', 
       color: '#fff', 
       position: 'relative',
-      overflow: 'hidden' // Prevents background scrolling
+      overflow: 'hidden'
     }}>
       {/* Mobile Menu Button */}
       <button
@@ -461,9 +555,9 @@ const DynamicTracker = () => {
       <main style={{ 
         flex: 1, 
         overflowY: 'auto',
-        overflowX: 'hidden', // Prevent horizontal scroll
+        overflowX: 'hidden',
         marginLeft: window.innerWidth < 768 ? '0' : '0',
-        height: '100vh' // Fix height to prevent double scrolling
+        height: '100vh'
       }}>
         {currentRoute === 'dashboard' ? (
           <div>
